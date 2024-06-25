@@ -239,6 +239,7 @@ local function Draw_GUI()
 	if showMainGUI then
 		-- Sort the buttons before displaying them
 		sortButtons()
+		ImGui.SetNextWindowSize(ImVec2(275, 255), ImGuiCond.FirstUseEver)
 		-- Set Window Name
 		local winName = string.format('%s##Main_%s', script, meName)
 		-- Load Theme
