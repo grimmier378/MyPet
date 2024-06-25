@@ -46,6 +46,7 @@ defaults = {
 	locked = false,
 	AutoSize = false,
 	ButtonsRow = 2,
+	IconSize = 20,
 	Buttons = {
 		Attack = { show = true, cmd = "/pet attack"},
 		Back =  { show = true, cmd = "/pet back off"},
@@ -151,6 +152,11 @@ local function loadSettings()
 
 	if settings[script].locked == nil then
 		settings[script].locked = false
+		newSetting = true
+	end
+
+	if settings[script].IconSize == nil then
+		settings[script].IconSize = defaults.IconSize
 		newSetting = true
 	end
 
@@ -429,6 +435,7 @@ local function Draw_GUI()
 				end
 
 				-- Configure Toggles for Button Display --
+				iconSize = ImGui.InputInt("Icon Size##"..script, iconSize, 1, 5)
 
 				ImGui.SeparatorText("Buttons##"..script)
 				ImGui.Text("Buttons to Display")
@@ -439,6 +446,7 @@ local function Draw_GUI()
 				-- Save & Close Button --
 				if ImGui.Button("Save & Close") then
 					settings[script].Scale = scale
+					settings[script].IconSize = iconSize
 					settings[script].LoadTheme = themeName
 					mq.pickle(configFile, settings)
 					showConfigGUI = false
