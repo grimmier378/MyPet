@@ -31,6 +31,7 @@ local btnKeys = { "Attack", "Back", "Taunt", "Follow", "Guard", "Focus", "Sit", 
 -- GUI Settings
 local winFlags = bit32.bor(ImGuiWindowFlags.None)
 local animSpell = mq.FindTextureAnimation('A_SpellIcons')
+local animItem = mq.FindTextureAnimation('A_DragItem')
 local iconSize = 20
 
 -- File Paths
@@ -286,9 +287,22 @@ local function Draw_GUI()
 					ImGui.PopStyleColor()
 					ImGui.EndGroup()
 					if ImGui.IsItemHovered() then
-						if ImGui.IsMouseReleased(0) then
-							mq.cmdf("/target %s", petName)
+	
+						local iconID = mq.TLO.Cursor.Icon() or 0
+						if iconID > 0 then
+							local itemIcon = mq.FindTextureAnimation('A_DragItem')
+							itemIcon:SetTextureCell(iconID-500)
+							ImGui.BeginTooltip()
+							ImGui.DrawTextureAnimation(itemIcon, 40, 40)
+							ImGui.EndTooltip()
 						end
+						if ImGui.IsMouseReleased(ImGuiMouseButton.Left)  then
+							mq.cmdf("/target %s", petName)
+							if mq.TLO.Cursor() then
+								mq.cmdf('/multiline ; /tar id %s; /face; /if (${Cursor.ID}) /click left target',mq.TLO.Me.Pet.ID())
+							end
+						end
+	
 					end
 					ImGui.Text("Target: %s", petTarg)
 					if petTarg ~= nil then
