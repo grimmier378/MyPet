@@ -29,10 +29,11 @@ local lastCheck = 0
 local btnKeys = { "Attack", "Back", "Taunt", "Follow", "Guard", "Focus", "Sit", "Hold", "Stop", "Bye", "Regroup", "Report", "Swarm", "Kill" }
 
 -- GUI Settings
-local winFlags = bit32.bor(ImGuiWindowFlags.None)
+local winFlags = bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.NoFocusOnAppearing)
 local animSpell = mq.FindTextureAnimation('A_SpellIcons')
 local animItem = mq.FindTextureAnimation('A_DragItem')
 local iconSize = 20
+local autoHide = false
 
 -- File Paths
 local themeFile = string.format('%s/MyUI/MyThemeZ.lua', mq.configDir)
@@ -43,6 +44,7 @@ local themezDir = mq.luaDir .. '/themez/init.lua'
 defaults = {
 	Scale = 1.0,
 	LoadTheme = 'Default',
+	AutoHide = false,
 	locked = false,
 	AutoSize = false,
 	ButtonsRow = 2,
@@ -175,10 +177,16 @@ local function loadSettings()
 		newSetting = true
 	end
 
+	if settings[script].AutoHide == nil then
+		settings[script].AutoHide = autoHide
+		newSetting = true
+	end
+
 	-- Load the theme
 	loadTheme()
 
 	-- Set the settings to the variables
+	autoHide = settings[script].AutoHide
 	aSize = settings[script].AutoSize
 	locked = settings[script].locked
 	scale = settings[script].Scale
@@ -236,6 +244,7 @@ local function DrawInspectableSpellIcon(iconID, bene, name,  i)
 	end
 	ImGui.PopID()
 end
+
 local function sortButtons()
 	table.sort(btnKeys)
 end
@@ -243,146 +252,161 @@ end
 local function Draw_GUI()
 
 	if showMainGUI then
+
 		-- Sort the buttons before displaying them
 		sortButtons()
-		ImGui.SetNextWindowSize(ImVec2(275, 255), ImGuiCond.FirstUseEver)
-		-- Set Window Name
-		local winName = string.format('%s##Main_%s', script, meName)
-		-- Load Theme
-		local ColorCount, StyleCount = LoadTheme.StartTheme(theme.Theme[themeID])
-		-- Create Main Window
-		local openMain, showMain = ImGui.Begin(winName, true, winFlags)
-		-- Check if the window is open
-		if not openMain then
-			showMainGUI = false
-		end
-		-- Check if the window is showing
-		if showMain then
-			-- Set Window Font Scale
-			ImGui.SetWindowFontScale(scale)
-			if ImGui.BeginPopupContextWindow() then
-				if ImGui.MenuItem("Settings") then
-					-- Toggle Config Window
-					showConfigGUI = not showConfigGUI
-				end
-				ImGui.EndPopup()
+		if (autoHide and petName ~= 'No Pet') or not autoHide then
+
+			ImGui.SetNextWindowSize(ImVec2(275, 255), ImGuiCond.FirstUseEver)
+			-- Set Window Name
+			local winName = string.format('%s##Main_%s', script, meName)
+			-- Load Theme
+			local ColorCount, StyleCount = LoadTheme.StartTheme(theme.Theme[themeID])
+			-- Create Main Window
+			local openMain, showMain = ImGui.Begin(winName, true, winFlags)
+			-- Check if the window is open
+			if not openMain then
+				showMainGUI = false
 			end
-			if petName == 'No Pet' then
-				ImGui.Text("No Pet")
-			else
-				local r, g, b, a = 1, 1, 1, 0.8
-				petHP = mq.TLO.Me.Pet.PctHPs() or 0
-				petTarg = mq.TLO.Pet.Target.DisplayName() or nil
-				petTargHP = mq.TLO.Pet.Target.PctHPs() or 0
-				petLvl = mq.TLO.Pet.Level() or -1
-				if ImGui.BeginTable("##SplitWindow", 2, bit32.bor(ImGuiTableFlags.BordersOuter, ImGuiTableFlags.ScrollY, ImGuiTableFlags.Resizable, ImGuiTableFlags.Reorderable, ImGuiTableFlags.Hideable), ImVec2(-1, -1)) then
-					ImGui.TableSetupColumn(petName .. "##MainPetInfo", ImGuiTableColumnFlags.None, -1)
-					ImGui.TableSetupColumn("Buffs##PetBuffs", ImGuiTableColumnFlags.None, -1)
-					ImGui.TableSetupScrollFreeze(0, 1)
-					ImGui.TableHeadersRow()
-					ImGui.TableNextRow()
-					ImGui.TableNextColumn()
-					ImGui.BeginGroup()
-					ImGui.Text("Dist: %.2f", petDist)
-					ImGui.SameLine()
-					ImGui.Text("Lvl: %s", petLvl)
-					r = 1
-					b = b * (100 - petHP) / 100
-					g = 0
-					ImGui.PushStyleColor(ImGuiCol.PlotHistogram, ImVec4(r, g, b, a))
-					ImGui.ProgressBar(petHP / 100, -1, 15)
-					ImGui.PopStyleColor()
-					ImGui.EndGroup()
-					if ImGui.IsItemHovered() then
-	
-						local iconID = mq.TLO.Cursor.Icon() or 0
-						if iconID > 0 then
-							local itemIcon = mq.FindTextureAnimation('A_DragItem')
-							itemIcon:SetTextureCell(iconID-500)
-							ImGui.BeginTooltip()
-							ImGui.DrawTextureAnimation(itemIcon, 40, 40)
-							ImGui.EndTooltip()
-						end
-						if ImGui.IsMouseReleased(ImGuiMouseButton.Left)  then
-							mq.cmdf("/target %s", petName)
-							if mq.TLO.Cursor() then
-								mq.cmdf('/multiline ; /tar id %s; /face; /if (${Cursor.ID}) /click left target',mq.TLO.Me.Pet.ID())
-							end
-						end
-	
+
+			-- Check if the window is showing
+			if showMain then
+				-- Set Window Font Scale
+				ImGui.SetWindowFontScale(scale)
+				if ImGui.BeginPopupContextWindow() then
+					if ImGui.MenuItem("Settings") then
+						-- Toggle Config Window
+						showConfigGUI = not showConfigGUI
 					end
-					ImGui.Text("Target: %s", petTarg)
-					if petTarg ~= nil then
-						r, g, b, a = 1, 1, 1, 0.8
-						r = r * petTargHP / 100
-						g = g * (100 - petTargHP) / 100
-						b = 0
-						ImGui.PushStyleColor(ImGuiCol.PlotHistogram, ImVec4(r, g, b, a))
-						ImGui.ProgressBar(petTargHP / 100, -1, 15)
-						ImGui.PopStyleColor()
-					else
-						ImGui.Dummy(20, 15)
-					end
-					ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 2, 2)
-
-					-- Buttons Section
-					local btnCount = 0
-					for i = 1, #btnKeys do
-
-						if settings[script].Buttons[btnKeys[i]].show then
-							if ImGui.Button(btnKeys[i] .. "##ButtonPet_" .. btnKeys[i], 60, 20) then
-								mq.cmd(settings[script].Buttons[btnKeys[i]].cmd)
-							end
-							btnCount = btnCount + 1
-							if btnCount < settings[script].ButtonsRow and i < #btnKeys then
-								ImGui.SameLine()
-							else
-								btnCount = 0
-							end
-						end
-					end
-					ImGui.PopStyleVar()
-
-					ImGui.TableNextColumn()
-
-					local max = math.floor((ImGui.GetColumnWidth() / iconSize) - 1)
-					local cnt = 0
-					ImGui.BeginChild('PetBuffs##PetBuf', 0.0, -1, ImGuiWindowFlags.AlwaysAutoResize)
-					ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0.0, 0.0)
-					local petDrawBuffCount = 0
-					local i = 1
-					while petDrawBuffCount ~= petBuffCount do
-						if petBuffs[i] ~= nil then
-							DrawInspectableSpellIcon(petBuffs[i].Icon, petBuffs[i].Beneficial, petBuffs[i].Name, i)
-							petDrawBuffCount = petDrawBuffCount + 1
-							if cnt < max and petDrawBuffCount < petBuffCount then
-								ImGui.SameLine()
-								cnt = cnt + 1
-							else
-								cnt = 0
-							end
+					ImGui.EndPopup()
+				end
+				if petName == 'No Pet' then
+					ImGui.Text("No Pet")
+				else
+					local r, g, b, a = 1, 1, 1, 0.8
+					petHP = mq.TLO.Me.Pet.PctHPs() or 0
+					petTarg = mq.TLO.Pet.Target.DisplayName() or nil
+					petTargHP = mq.TLO.Pet.Target.PctHPs() or 0
+					petLvl = mq.TLO.Pet.Level() or -1
+					if ImGui.BeginTable("##SplitWindow", 2, bit32.bor(ImGuiTableFlags.BordersOuter, ImGuiTableFlags.Resizable, ImGuiTableFlags.Reorderable, ImGuiTableFlags.Hideable), ImVec2(-1, -1)) then
+						ImGui.TableSetupColumn(petName .. "##MainPetInfo", ImGuiTableColumnFlags.None, -1)
+						ImGui.TableSetupColumn("Buffs##PetBuffs", ImGuiTableColumnFlags.None, -1)
+						ImGui.TableSetupScrollFreeze(0, 1)
+						ImGui.TableHeadersRow()
+						ImGui.TableNextRow()
+						ImGui.TableNextColumn()
+						ImGui.BeginGroup()
+						ImGui.Text("Lvl:")
+						ImGui.SameLine()
+						ImGui.TextColored(0,1,1,1,"%s", petLvl)
+						ImGui.SameLine()
+						ImGui.Text("Dist:")
+						ImGui.SameLine()
+						if petDist >= 150 then
+							ImGui.TextColored(1,0,0,1,"%.1f", petDist)
 						else
-							ImGui.Dummy(20, 20)
-							if cnt < max and petDrawBuffCount < petBuffCount then
-								ImGui.SameLine()
-								cnt = cnt + 1
-							else
-								cnt = 0
+							ImGui.TextColored(0,1,0,1,"%.1f", petDist)
+						end
+
+						r = 1
+						b = b * (100 - petHP) / 100
+						g = 0
+						local yPos = ImGui.GetCursorPosY() -1
+						ImGui.PushStyleColor(ImGuiCol.PlotHistogram, ImVec4(r, g, b, a))
+						ImGui.ProgressBar(petHP / 100, -1, 15, "##")
+						ImGui.PopStyleColor()
+						ImGui.SetCursorPosY(yPos)
+						ImGui.SetCursorPosX(ImGui.GetColumnWidth() /2)
+						ImGui.Text("%.1f%%", petHP)
+						ImGui.EndGroup()
+						if ImGui.IsItemHovered() then
+		
+							local iconID = mq.TLO.Cursor.Icon() or 0
+							if iconID > 0 then
+								local itemIcon = mq.FindTextureAnimation('A_DragItem')
+								itemIcon:SetTextureCell(iconID-500)
+								ImGui.BeginTooltip()
+								ImGui.DrawTextureAnimation(itemIcon, 40, 40)
+								ImGui.EndTooltip()
+							end
+							if ImGui.IsMouseReleased(ImGuiMouseButton.Left)  then
+								mq.cmdf("/target %s", petName)
+								if mq.TLO.Cursor() then
+									mq.cmdf('/multiline ; /tar id %s; /face; /if (${Cursor.ID}) /click left target',mq.TLO.Me.Pet.ID())
+								end
+							end
+		
+						end
+						ImGui.Text("Target: %s", petTarg)
+						if petTarg ~= nil then
+							r, g, b, a = 1, 1, 1, 0.8
+							r = r * petTargHP / 100
+							g = g * (100 - petTargHP) / 100
+							b = 0
+							ImGui.PushStyleColor(ImGuiCol.PlotHistogram, ImVec4(r, g, b, a))
+							ImGui.ProgressBar(petTargHP / 100, -1, 15)
+							ImGui.PopStyleColor()
+						else
+							ImGui.Dummy(20, 15)
+						end
+						ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 2, 2)
+
+						-- Buttons Section
+						local btnCount = 0
+						for i = 1, #btnKeys do
+
+							if settings[script].Buttons[btnKeys[i]].show then
+								if ImGui.Button(btnKeys[i] .. "##ButtonPet_" .. btnKeys[i], 60, 20) then
+									mq.cmd(settings[script].Buttons[btnKeys[i]].cmd)
+								end
+								btnCount = btnCount + 1
+								if btnCount < settings[script].ButtonsRow and i < #btnKeys then
+									ImGui.SameLine()
+								else
+									btnCount = 0
+								end
 							end
 						end
-						i = i + 1
-					end
-					ImGui.PopStyleVar()
-					ImGui.EndChild()
+						ImGui.PopStyleVar()
 
-					ImGui.EndTable()
+						ImGui.TableNextColumn()
+
+						local max = math.floor((ImGui.GetColumnWidth() / iconSize) - 1)
+						local cnt = 0
+						ImGui.BeginChild('PetBuffs##PetBuf', 0.0, -1, bit32.bor(ImGuiChildFlags.None), bit32.bor(ImGuiWindowFlags.AlwaysAutoResize, ImGuiWindowFlags.NoScrollbar))
+						ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0.0, 0.0)
+						local petDrawBuffCount = 0
+						local i = 1
+						while petDrawBuffCount ~= petBuffCount do
+							if petBuffs[i] ~= nil then
+								DrawInspectableSpellIcon(petBuffs[i].Icon, petBuffs[i].Beneficial, petBuffs[i].Name, i)
+								petDrawBuffCount = petDrawBuffCount + 1
+								if cnt < max and petDrawBuffCount < petBuffCount then
+									ImGui.SameLine()
+									cnt = cnt + 1
+								else
+									cnt = 0
+								end
+							else
+								ImGui.Dummy(20, 20)
+								if cnt < max and petDrawBuffCount < petBuffCount then
+									ImGui.SameLine()
+									cnt = cnt + 1
+								else
+									cnt = 0
+								end
+							end
+							i = i + 1
+						end
+						ImGui.PopStyleVar()
+						ImGui.EndChild()
+
+						ImGui.EndTable()
+					end
 				end
+				-- Reset Font Scale
+				ImGui.SetWindowFontScale(1)
 			end
-			-- Reset Font Scale
-			ImGui.SetWindowFontScale(1)
-			LoadTheme.EndTheme(ColorCount, StyleCount)
-			ImGui.End()
-		else
 			LoadTheme.EndTheme(ColorCount, StyleCount)
 			ImGui.End()
 		end
@@ -436,7 +460,7 @@ local function Draw_GUI()
 
 				-- Configure Toggles for Button Display --
 				iconSize = ImGui.InputInt("Icon Size##"..script, iconSize, 1, 5)
-
+				autoHide = ImGui.Checkbox("Auto Hide##"..script, autoHide)
 				ImGui.SeparatorText("Buttons##"..script)
 				ImGui.Text("Buttons to Display")
 				ImGui.SameLine()
@@ -448,6 +472,7 @@ local function Draw_GUI()
 					settings[script].Scale = scale
 					settings[script].IconSize = iconSize
 					settings[script].LoadTheme = themeName
+					settings[script].AutoHide = autoHide
 					mq.pickle(configFile, settings)
 					showConfigGUI = false
 				end
@@ -608,7 +633,7 @@ local function Loop()
 		if mq.TLO.EverQuest.GameState() ~= "INGAME" then printf("\aw[\at%s\ax] \arNot in game, \ayTry again later...", script) mq.exit() end
 		petName = mq.TLO.Pet.DisplayName() or 'No Pet'
 		-- Process ImGui Window Flag Changes
-		winFlags = locked and bit32.bor(ImGuiWindowFlags.NoMove) or bit32.bor(ImGuiWindowFlags.None)
+		winFlags = locked and bit32.bor(ImGuiWindowFlags.NoMove, ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.NoFocusOnAppearing) or bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.NoFocusOnAppearing)
 		winFlags = aSize and bit32.bor(winFlags, ImGuiWindowFlags.AlwaysAutoResize) or winFlags
 		if petName ~= 'No Pet' then
 			local curTime = os.time()
