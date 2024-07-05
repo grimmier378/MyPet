@@ -15,7 +15,7 @@ local lIcon -- lock icon variable holder
 
 -- Variables
 local script = 'MyPet' -- Change this to the name of your script
-local meName -- Character Name
+local meName = mq.TLO.Me.Name() or 'none'-- Character Name
 local themeName = 'Default'
 local gIcon = Icon.MD_SETTINGS -- Gear Icon for Settings
 local themeID = 1
@@ -35,10 +35,12 @@ local animItem = mq.FindTextureAnimation('A_DragItem')
 local iconSize = 20
 local autoHide = false
 local checkStates = false
+local showTitleBar = true
 
 -- File Paths
 local themeFile = string.format('%s/MyUI/MyThemeZ.lua', mq.configDir)
-local configFile = string.format('%s/MyUI/%s/%s_Configs.lua', mq.configDir, script, script)
+local configFileOld = string.format('%s/MyUI/%s/%s_Configs.lua', mq.configDir, script, script)
+local configFile = string.format('%s/MyUI/%s/%s/%s.lua', mq.configDir, script,mq.TLO.EverQuest.Server(), meName)
 local themezDir = mq.luaDir .. '/themez/init.lua'
 
 -- Default Settings
@@ -47,6 +49,7 @@ defaults = {
 	LoadTheme = 'Default',
 	AutoHide = false,
 	locked = false,
+	ShowTitlebar = true,
 	AutoSize = false,
 	ButtonsRow = 2,
 	IconSize = 20,
@@ -127,10 +130,16 @@ local function loadSettings()
 
 	-- Check Settings File_Exists
 	if not File_Exists(configFile) then
-		-- Create the settings file from the defaults
-		settings[script] = defaults
-		mq.pickle(configFile, settings)
-		loadSettings()
+		if File_Exists(configFileOld) then
+			-- Load the old settings file
+			settings = dofile(configFileOld)
+			-- Save the settings to the new file
+			mq.pickle(configFile, settings)
+		else
+			-- Create the settings file from the defaults
+			settings[script] = defaults
+			mq.pickle(configFile, settings)
+		end
 	else
 		-- Load settings from the Lua config file
 		settings = dofile(configFile)
@@ -155,6 +164,11 @@ local function loadSettings()
 
 	if settings[script].locked == nil then
 		settings[script].locked = false
+		newSetting = true
+	end
+
+	if settings[script].ShowTitlebar == nil then
+		settings[script].ShowTitlebar = true
 		newSetting = true
 	end
 
@@ -187,6 +201,7 @@ local function loadSettings()
 	loadTheme()
 
 	-- Set the settings to the variables
+	settings[script].ShowTitlebar = showTitleBar
 	autoHide = settings[script].AutoHide
 	aSize = settings[script].AutoSize
 	locked = settings[script].locked
@@ -289,6 +304,19 @@ local function Draw_GUI()
 					if ImGui.MenuItem("Settings") then
 						-- Toggle Config Window
 						showConfigGUI = not showConfigGUI
+					end
+					local lockLabel = locked and 'Unlock' or 'Lock'
+					if ImGui.MenuItem(lockLabel.."##MyPet") then
+						locked = not locked
+	
+						settings[script].locked = locked
+						mq.pickle(configFile, settings)
+					end
+					local titleBarLabel = showTitleBar and 'Hide Title Bar' or 'Show Title Bar'
+					if ImGui.MenuItem(titleBarLabel.."##MyPet") then
+						showTitleBar = not showTitleBar
+						settings[script].ShowTitlebar = showTitleBar
+						mq.pickle(configFile, settings)
 					end
 					ImGui.EndPopup()
 				end
@@ -485,6 +513,11 @@ local function Draw_GUI()
 				-- Configure Toggles for Button Display --
 				iconSize = ImGui.InputInt("Icon Size##"..script, iconSize, 1, 5)
 				autoHide = ImGui.Checkbox("Auto Hide##"..script, autoHide)
+				ImGui.SameLine()
+				locked = ImGui.Checkbox("Lock Window##"..script, locked)
+				ImGui.SameLine()
+				showTitleBar = ImGui.Checkbox("Show Title Bar##"..script, showTitleBar)
+				
 				ImGui.SeparatorText("Buttons##"..script)
 				ImGui.Text("Buttons to Display")
 				ImGui.SameLine()
@@ -493,6 +526,8 @@ local function Draw_GUI()
 
 				-- Save & Close Button --
 				if ImGui.Button("Save & Close") then
+					settings[script].ShowTitlebar = showTitleBar
+					settings[script].locked = locked
 					settings[script].Scale = scale
 					settings[script].IconSize = iconSize
 					settings[script].LoadTheme = themeName
@@ -640,6 +675,7 @@ local function Init()
 	loadSettings()
 	-- Get Character Name
 	meName = mq.TLO.Me.Name()
+	configFile = string.format('%s/MyUI/%s/%s/%s.lua', mq.configDir, script,mq.TLO.EverQuest.Server(), meName)
 	-- Check if ThemeZ exists
 	if File_Exists(themezDir) then
 		hasThemeZ = true
@@ -658,8 +694,10 @@ local function Loop()
 		if mq.TLO.EverQuest.GameState() ~= "INGAME" then printf("\aw[\at%s\ax] \arNot in game, \ayTry again later...", script) mq.exit() end
 		petName = mq.TLO.Pet.DisplayName() or 'No Pet'
 		-- Process ImGui Window Flag Changes
+		winFlags = bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.NoFocusOnAppearing)
 		winFlags = locked and bit32.bor(ImGuiWindowFlags.NoMove, ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.NoFocusOnAppearing) or bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.NoFocusOnAppearing)
 		winFlags = aSize and bit32.bor(winFlags, ImGuiWindowFlags.AlwaysAutoResize) or winFlags
+		winFlags = not showTitleBar and bit32.bor(winFlags, ImGuiWindowFlags.NoTitleBar) or winFlags
 		if petName ~= 'No Pet' then
 			GetButtonStates()
 			local curTime = os.time()
