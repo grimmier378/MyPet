@@ -19,7 +19,7 @@ local meName -- Character Name
 local themeName = 'Default'
 local gIcon = Icon.MD_SETTINGS -- Gear Icon for Settings
 local themeID = 1
-local theme, defaults, settings = {}, {}, {}
+local theme, defaults, settings, btnInfo = {}, {}, {}, {}
 local RUNNING = true
 local showMainGUI, showConfigGUI = true, false
 local scale = 1
@@ -34,6 +34,7 @@ local animSpell = mq.FindTextureAnimation('A_SpellIcons')
 local animItem = mq.FindTextureAnimation('A_DragItem')
 local iconSize = 20
 local autoHide = false
+local checkStates = false
 
 -- File Paths
 local themeFile = string.format('%s/MyUI/MyThemeZ.lua', mq.configDir)
@@ -197,6 +198,17 @@ local function loadSettings()
 
 end
 
+local function GetButtonStates()
+	for i = 0, 14 do
+		local winItem = string.format('PetInfoWindow/PIW_Pet%s_Button', i)
+		local btnState = mq.TLO.Window(winItem).Checked() or false
+		local btnName = mq.TLO.Window(winItem).Text() or 'none'
+		if btnName ~= 'none' then
+			btnInfo[btnName] = btnState
+		end
+	end
+end
+
 local function DrawInspectableSpellIcon(iconID, bene, name,  i)
 	local spell = mq.TLO.Spell(petBuffs[i].ID)
 	local cursor_x, cursor_y = ImGui.GetCursorPos()
@@ -356,14 +368,26 @@ local function Draw_GUI()
 						for i = 1, #btnKeys do
 
 							if settings[script].Buttons[btnKeys[i]].show then
-								if ImGui.Button(btnKeys[i] .. "##ButtonPet_" .. btnKeys[i], 60, 20) then
-									mq.cmd(settings[script].Buttons[btnKeys[i]].cmd)
-								end
-								btnCount = btnCount + 1
-								if btnCount < settings[script].ButtonsRow and i < #btnKeys then
-									ImGui.SameLine()
-								else
-									btnCount = 0
+								local tmpname = btnKeys[i] or 'none'
+								tmpname = string.lower(tmpname)
+								if btnInfo[tmpname] ~= nil then
+									if btnInfo[tmpname] then
+										ImGui.PushStyleColor(ImGuiCol.Text, ImVec4(0, 1, 1, 1))
+										if ImGui.Button(btnKeys[i] .. "##ButtonPet_" .. btnKeys[i], 60, 20) then
+											mq.cmd(settings[script].Buttons[btnKeys[i]].cmd)
+										end
+										ImGui.PopStyleColor()
+									else
+										if ImGui.Button(btnKeys[i] .. "##ButtonPet_" .. btnKeys[i], 60, 20) then
+											mq.cmd(settings[script].Buttons[btnKeys[i]].cmd)
+										end
+									end
+									btnCount = btnCount + 1
+									if btnCount < settings[script].ButtonsRow and i < #btnKeys then
+										ImGui.SameLine()
+									else
+										btnCount = 0
+									end
 								end
 							end
 						end
@@ -623,6 +647,7 @@ local function Init()
 	-- Initialize ImGui
 	mq.imgui.init(script, Draw_GUI)
 	getPetData()
+	GetButtonStates()
 end
 
 local function Loop()
@@ -636,11 +661,13 @@ local function Loop()
 		winFlags = locked and bit32.bor(ImGuiWindowFlags.NoMove, ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.NoFocusOnAppearing) or bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.NoFocusOnAppearing)
 		winFlags = aSize and bit32.bor(winFlags, ImGuiWindowFlags.AlwaysAutoResize) or winFlags
 		if petName ~= 'No Pet' then
+			GetButtonStates()
 			local curTime = os.time()
 			if curTime - lastCheck > 1 then
 				getPetData()
 			end
 		end
+
 		mq.delay(1)
 
 	end
