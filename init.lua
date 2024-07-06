@@ -27,7 +27,7 @@ local aSize, locked, hasThemeZ = false, false, false
 local petHP, petTarg, petDist, petBuffs, petName, petTargHP, petLvl, petBuffCount = 0, nil, 0, {}, 'No Pet', 0, -1, 0
 local lastCheck = 0
 local btnKeys = { "Attack", "Back", "Taunt", "Follow", "Guard", "Focus", "Sit", "Hold", "Stop", "Bye", "Regroup", "Report", "Swarm", "Kill" }
-
+btnInfo = { attack = false, back = false, taunt = false, follow = false, guard = false, focus = false, sit = false, hold = false, stop = false, bye = false, regroup = false, report = false, swarm = false, kill = false }
 -- GUI Settings
 local winFlags = bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.NoFocusOnAppearing)
 local animSpell = mq.FindTextureAnimation('A_SpellIcons')
@@ -201,7 +201,7 @@ local function loadSettings()
 	loadTheme()
 
 	-- Set the settings to the variables
-	settings[script].ShowTitlebar = showTitleBar
+	showTitleBar = settings[script].ShowTitlebar
 	autoHide = settings[script].AutoHide
 	aSize = settings[script].AutoSize
 	locked = settings[script].locked
@@ -419,6 +419,7 @@ local function Draw_GUI()
 								end
 							end
 						end
+						
 						ImGui.PopStyleVar()
 
 						ImGui.TableNextColumn()
@@ -695,8 +696,8 @@ local function Loop()
 		petName = mq.TLO.Pet.DisplayName() or 'No Pet'
 		-- Process ImGui Window Flag Changes
 		winFlags = bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.NoFocusOnAppearing)
-		winFlags = locked and bit32.bor(ImGuiWindowFlags.NoMove, ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.NoFocusOnAppearing) or bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.NoFocusOnAppearing)
-		winFlags = aSize and bit32.bor(winFlags, ImGuiWindowFlags.AlwaysAutoResize) or winFlags
+		winFlags = locked and bit32.bor(ImGuiWindowFlags.NoMove,ImGuiWindowFlags.NoResize, winFlags) or winFlags
+		-- winFlags = aSize and bit32.bor(winFlags, ImGuiWindowFlags.AlwaysAutoResize) or winFlags
 		winFlags = not showTitleBar and bit32.bor(winFlags, ImGuiWindowFlags.NoTitleBar) or winFlags
 		if petName ~= 'No Pet' then
 			GetButtonStates()
