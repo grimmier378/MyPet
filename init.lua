@@ -101,28 +101,22 @@ local function loadTheme()
 end
 
 local function getPetData()
-	lastCheck = os.time()
-	if mq.TLO.Pet() == 'NO PET' then return end
+	if mq.TLO.Pet() == 'NO PET' then petBuffs = {} return end
 	-- petBuffs = {}
-	petBuffCount = 0
-	petDist = mq.TLO.Pet.Distance() or 0
+	local tmpBuffCnt = 0
 	for i = 1 , 120 do
-		local name = mq.TLO.Pet.Buff(i).Name() or nil
-		local id = mq.TLO.Pet.Buff(i).ID() or 0
-		local beneficial = mq.TLO.Pet.Buff(i).Beneficial() or nil
-		local icon = mq.TLO.Pet.Buff(i).SpellIcon() or 0
+		local name = mq.TLO.Me.PetBuff(i)() or 'None'
+		local id = mq.TLO.Spell(name).ID() or 0
+		local beneficial = mq.TLO.Spell(id).Beneficial() or nil
+		local icon = mq.TLO.Spell(id).SpellIcon() or 0
 		local slot = i
-		
-		if petBuffs[i] ~= nil and petBuffs[i].Slot == i then
-			petBuffs[i] = {Name = name, ID = id, Beneficial = beneficial, Icon = icon, Slot = slot}
-			petBuffCount = petBuffCount + 1
-		elseif name == nil then
-			petBuffs[i] = nil
-		elseif name ~= nil then
-			petBuffCount = petBuffCount + 1
-			petBuffs[i] = {Name = name, ID = id, Beneficial = beneficial, Icon = icon, Slot = slot}
+		petBuffs[i] = {}
+		petBuffs[i] = {Name = name, ID = id, Beneficial = beneficial, Icon = icon, Slot = slot}
+		if name ~= 'None' then
+			tmpBuffCnt = tmpBuffCnt + 1
 		end
 	end
+	petBuffCount = tmpBuffCnt
 end
 
 local function loadSettings()
@@ -214,14 +208,15 @@ local function loadSettings()
 end
 
 local function GetButtonStates()
-	for i = 0, 14 do
-		local winItem = string.format('PetInfoWindow/PIW_Pet%s_Button', i)
-		local btnState = mq.TLO.Window(winItem).Checked() or false
-		local btnName = mq.TLO.Window(winItem).Text() or 'none'
-		if btnName ~= 'none' then
-			btnInfo[btnName] = btnState
-		end
-	end
+		local stance = mq.TLO.Pet.Stance()
+		btnInfo.follow = stance == 'FOLLOW' and true or false
+		btnInfo.guard = stance == 'GUARD' and true or false
+		btnInfo.sit = mq.TLO.Pet.Sitting() and true or false
+		btnInfo.taunt = mq.TLO.Pet.Taunt() and true or false
+		btnInfo.stop = mq.TLO.Pet.Stop() and true or false
+		btnInfo.hold = mq.TLO.Pet.Hold() and true or false
+		btnInfo.focus = mq.TLO.Pet.Focus() and true or false
+		btnInfo.regroup = mq.TLO.Pet.ReGroup() and true or false
 end
 
 local function DrawInspectableSpellIcon(iconID, bene, name,  i)
@@ -342,10 +337,12 @@ local function Draw_GUI()
 						ImGui.SameLine()
 						ImGui.Text("Dist:")
 						ImGui.SameLine()
+						petDist = mq.TLO.Pet.Distance() or 0
+
 						if petDist >= 150 then
-							ImGui.TextColored(1,0,0,1,"%.1f", petDist)
+							ImGui.TextColored(1,0,0,1,"%.0f", petDist)
 						else
-							ImGui.TextColored(0,1,0,1,"%.1f", petDist)
+							ImGui.TextColored(0,1,0,1,"%.0f", petDist)
 						end
 
 						r = 1
@@ -424,32 +421,33 @@ local function Draw_GUI()
 
 						ImGui.TableNextColumn()
 
-						local max = math.floor((ImGui.GetColumnWidth() / iconSize) - 1)
-						local cnt = 0
+						local maxPerRow = math.floor((ImGui.GetColumnWidth() / iconSize) - 1)
+						local rowCnt = 0
 						ImGui.BeginChild('PetBuffs##PetBuf', 0.0, -1, bit32.bor(ImGuiChildFlags.None), bit32.bor(ImGuiWindowFlags.AlwaysAutoResize, ImGuiWindowFlags.NoScrollbar))
 						ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 0.0, 0.0)
 						local petDrawBuffCount = 0
-						local i = 1
+						local idx = 1
 						while petDrawBuffCount ~= petBuffCount do
-							if petBuffs[i] ~= nil then
-								DrawInspectableSpellIcon(petBuffs[i].Icon, petBuffs[i].Beneficial, petBuffs[i].Name, i)
+							if petBuffs[idx] == nil then break end
+							if petBuffs[idx].Name ~= 'None' then
+								DrawInspectableSpellIcon(petBuffs[idx].Icon, petBuffs[idx].Beneficial, petBuffs[idx].Name, idx)
 								petDrawBuffCount = petDrawBuffCount + 1
-								if cnt < max and petDrawBuffCount < petBuffCount then
+								if rowCnt < maxPerRow and petDrawBuffCount < petBuffCount then
 									ImGui.SameLine()
-									cnt = cnt + 1
+									rowCnt = rowCnt + 1
 								else
-									cnt = 0
+									rowCnt = 0
 								end
 							else
 								ImGui.Dummy(20, 20)
-								if cnt < max and petDrawBuffCount < petBuffCount then
+								if rowCnt < maxPerRow and petDrawBuffCount < petBuffCount then
 									ImGui.SameLine()
-									cnt = cnt + 1
+									rowCnt = rowCnt + 1
 								else
-									cnt = 0
+									rowCnt = 0
 								end
 							end
-							i = i + 1
+							idx = idx + 1
 						end
 						ImGui.PopStyleVar()
 						ImGui.EndChild()
@@ -684,6 +682,7 @@ local function Init()
 	-- Initialize ImGui
 	mq.imgui.init(script, Draw_GUI)
 	getPetData()
+	lastCheck = os.time()
 	GetButtonStates()
 end
 
@@ -694,6 +693,7 @@ local function Loop()
 		-- Make sure we are still in game or exit the script.
 		if mq.TLO.EverQuest.GameState() ~= "INGAME" then printf("\aw[\at%s\ax] \arNot in game, \ayTry again later...", script) mq.exit() end
 		petName = mq.TLO.Pet.DisplayName() or 'No Pet'
+		local curTime = os.time()
 		-- Process ImGui Window Flag Changes
 		winFlags = bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.NoFocusOnAppearing)
 		winFlags = locked and bit32.bor(ImGuiWindowFlags.NoMove,ImGuiWindowFlags.NoResize, winFlags) or winFlags
@@ -701,13 +701,16 @@ local function Loop()
 		winFlags = not showTitleBar and bit32.bor(winFlags, ImGuiWindowFlags.NoTitleBar) or winFlags
 		if petName ~= 'No Pet' then
 			GetButtonStates()
-			local curTime = os.time()
 			if curTime - lastCheck > 1 then
 				getPetData()
+				lastCheck = curTime
 			end
+		else
+			petBuffCount = 0
+			petBuffs = {}
 		end
 
-		mq.delay(1)
+		mq.delay(33)
 
 	end
 end
