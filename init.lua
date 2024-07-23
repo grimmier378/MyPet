@@ -69,6 +69,15 @@ defaults = {
 		Swarm =  { show = false, cmd = "/pet swarm"},
 		Kill =  { show = false, cmd = "/pet kill"},
 	},
+	ConColors = {
+		['RED'] = {0.9, 0.4, 0.4, 0.8},
+		['YELLOW'] = {1, 1, 0, 1},
+		['WHITE'] = {1, 1, 1, 1},
+		['BLUE'] = {0.2, 0.2, 1, 1},
+		['LIGHT BLUE'] = {0, 1, 1, 1},
+		['GREEN'] = {0, 1, 0, 1},
+		['GREY'] = {0.6, 0.6, 0.6, 1},
+	},
 }
 
 ---comment Check to see if the file we want to work on exists.
@@ -188,6 +197,15 @@ local function loadSettings()
 
 	if settings[script].AutoHide == nil then
 		settings[script].AutoHide = autoHide
+		newSetting = true
+	end
+
+	if settings[script].ConColors == nil then
+		settings[script].ConColors = {}
+		for k, v in pairs(defaults.ConColors) do
+			settings[script].ConColors[k] = {}
+			settings[script].ConColors[k] = v
+		end
 		newSetting = true
 	end
 
@@ -374,7 +392,10 @@ local function Draw_GUI()
 							end
 		
 						end
-						ImGui.Text("Target: %s", petTarg)
+						local conCol = mq.TLO.Pet.Target.ConColor() or 'WHITE'
+						if conCol == nil then conCol = 'WHITE' end
+						local txCol = settings[script].ConColors[conCol]
+						ImGui.TextColored(ImVec4(txCol[1],txCol[2],txCol[3],txCol[4]),"%s", petTarg)
 						if petTarg ~= nil then
 							r, g, b, a = 1, 1, 1, 0.8
 							r = r * petTargHP / 100
@@ -474,42 +495,68 @@ local function Draw_GUI()
 
 				-- Configure ThemeZ --
 				ImGui.SeparatorText("Theme##"..script)
-				ImGui.Text("Cur Theme: %s", themeName)
+				if ImGui.CollapsingHeader("Theme##"..script) then
 
-				-- Combo Box Load Theme
-				if ImGui.BeginCombo("Load Theme##"..script, themeName) then
-					for k, data in pairs(theme.Theme) do
-						local isSelected = data.Name == themeName
-						if ImGui.Selectable(data.Name, isSelected) then
-							theme.LoadTheme = data.Name
-							themeID = k
-							themeName = theme.LoadTheme
+					ImGui.Text("Cur Theme: %s", themeName)
+
+					-- Combo Box Load Theme
+					if ImGui.BeginCombo("Load Theme##"..script, themeName) then
+						for k, data in pairs(theme.Theme) do
+							local isSelected = data.Name == themeName
+							if ImGui.Selectable(data.Name, isSelected) then
+								theme.LoadTheme = data.Name
+								themeID = k
+								themeName = theme.LoadTheme
+							end
 						end
+						ImGui.EndCombo()
 					end
-					ImGui.EndCombo()
-				end
 
-				-- Configure Scale --
-				scale = ImGui.SliderFloat("Scale##"..script, scale, 0.5, 2)
-				if scale ~= settings[script].Scale then
-					if scale < 0.5 then scale = 0.5 end
-					if scale > 2 then scale = 2 end
-				end
-
-				-- Edit ThemeZ Button if ThemeZ lua exists.
-				if hasThemeZ then
-					if ImGui.Button('Edit ThemeZ') then
-						mq.cmd("/lua run themez")
+					-- Configure Scale --
+					scale = ImGui.SliderFloat("Scale##"..script, scale, 0.5, 2)
+					if scale ~= settings[script].Scale then
+						if scale < 0.5 then scale = 0.5 end
+						if scale > 2 then scale = 2 end
 					end
-					ImGui.SameLine()
+
+					-- Edit ThemeZ Button if ThemeZ lua exists.
+					if hasThemeZ then
+						if ImGui.Button('Edit ThemeZ') then
+							mq.cmd("/lua run themez")
+						end
+						ImGui.SameLine()
+					end
+
+					-- Reload Theme File incase of changes --
+					if ImGui.Button('Reload Theme File') then
+						loadTheme()
+					end
 				end
 
-				-- Reload Theme File incase of changes --
-				if ImGui.Button('Reload Theme File') then
-					loadTheme()
-				end
+				if ImGui.CollapsingHeader('ConColors##ConColors') then
+					ImGui.SeparatorText("Con Colors")
 
+					if ImGui.BeginTable('##PConCol', 2) then
+						ImGui.TableNextColumn()
+						settings[script].ConColors.RED = ImGui.ColorEdit4("RED##ConColors", settings[script].ConColors.RED, ImGuiColorEditFlags.NoInputs)
+						ImGui.TableNextColumn()
+						settings[script].ConColors.YELLOW = ImGui.ColorEdit4("YELLOW##ConColors", settings[script].ConColors.YELLOW, ImGuiColorEditFlags.NoInputs)
+						ImGui.TableNextColumn()
+						settings[script].ConColors.WHITE = ImGui.ColorEdit4("WHITE##ConColors", settings[script].ConColors.WHITE, ImGuiColorEditFlags.NoInputs)
+						ImGui.TableNextColumn()
+						settings[script].ConColors.BLUE = ImGui.ColorEdit4("BLUE##ConColors", settings[script].ConColors.BLUE, ImGuiColorEditFlags.NoInputs)
+						ImGui.TableNextColumn()
+						settings[script].ConColors['LIGHT BLUE'] = ImGui.ColorEdit4("LIGHT BLUE##ConColors", settings[script].ConColors['LIGHT BLUE'], ImGuiColorEditFlags.NoInputs)
+						ImGui.TableNextColumn()
+						settings[script].ConColors.GREEN = ImGui.ColorEdit4("GREEN##ConColors", settings[script].ConColors.GREEN, ImGuiColorEditFlags.NoInputs)
+						ImGui.TableNextColumn()
+						settings[script].ConColors.GREY = ImGui.ColorEdit4("GREY##ConColors", settings[script].ConColors.GREY, ImGuiColorEditFlags.NoInputs)
+						ImGui.EndTable()
+					end
+
+				end
 				-- Configure Toggles for Button Display --
+				
 				iconSize = ImGui.InputInt("Icon Size##"..script, iconSize, 1, 5)
 				autoHide = ImGui.Checkbox("Auto Hide##"..script, autoHide)
 				ImGui.SameLine()
@@ -518,11 +565,12 @@ local function Draw_GUI()
 				showTitleBar = ImGui.Checkbox("Show Title Bar##"..script, showTitleBar)
 				
 				ImGui.SeparatorText("Buttons##"..script)
-				ImGui.Text("Buttons to Display")
-				ImGui.SameLine()
-				ImGui.SetNextItemWidth(100)
-				settings[script].ButtonsRow = ImGui.InputInt("Buttons Per Row##"..script, settings[script].ButtonsRow, 1, 5)
-
+				if ImGui.CollapsingHeader('Buttons##PetConfigButtons') then
+					ImGui.Text("Buttons to Display")
+					ImGui.SameLine()
+					ImGui.SetNextItemWidth(100)
+					settings[script].ButtonsRow = ImGui.InputInt("Buttons Per Row##"..script, settings[script].ButtonsRow, 1, 5)
+				end
 				-- Save & Close Button --
 				if ImGui.Button("Save & Close") then
 					settings[script].ShowTitlebar = showTitleBar
