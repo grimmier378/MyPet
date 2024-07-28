@@ -343,15 +343,6 @@ local function Draw_GUI()
 						ImGui.Text("%.1f%%", petHP)
 						ImGui.EndGroup()
 						if ImGui.IsItemHovered() then
-		
-							local iconID = mq.TLO.Cursor.Icon() or 0
-							if iconID > 0 then
-								local itemIcon = mq.FindTextureAnimation('A_DragItem')
-								itemIcon:SetTextureCell(iconID-500)
-								ImGui.BeginTooltip()
-								ImGui.DrawTextureAnimation(itemIcon, 40, 40)
-								ImGui.EndTooltip()
-							end
 							if ImGui.IsMouseReleased(ImGuiMouseButton.Left)  then
 								mq.cmdf("/target %s", petName)
 								if mq.TLO.Cursor() then
