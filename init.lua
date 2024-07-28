@@ -154,49 +154,17 @@ local function loadSettings()
 		end
 	end
 
+
+	for k, v in pairs(defaults) do
+		if settings[script][k] == nil then
+			settings[script][k] = v
+			newSetting = true
+		end
+	end
+
 	-- Check if the settings are missing and use defaults if they are
 	if settings[script].Buttons == nil then
 		settings[script].Buttons = defaults.Buttons
-		newSetting = true
-	end
-
-	if settings[script].ButtonsRow == nil then
-		settings[script].ButtonsRow = defaults.ButtonsRow
-		newSetting = true
-	end
-
-	if settings[script].locked == nil then
-		settings[script].locked = false
-		newSetting = true
-	end
-
-	if settings[script].ShowTitlebar == nil then
-		settings[script].ShowTitlebar = true
-		newSetting = true
-	end
-
-	if settings[script].IconSize == nil then
-		settings[script].IconSize = defaults.IconSize
-		newSetting = true
-	end
-
-	if settings[script].Scale == nil then
-		settings[script].Scale = 1
-		newSetting = true
-	end
-
-	if not settings[script].LoadTheme then
-		settings[script].LoadTheme = 'Default'
-		newSetting = true
-	end
-
-	if settings[script].AutoSize == nil then
-		settings[script].AutoSize = aSize
-		newSetting = true
-	end
-
-	if settings[script].AutoHide == nil then
-		settings[script].AutoHide = autoHide
 		newSetting = true
 	end
 
