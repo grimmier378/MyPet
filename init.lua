@@ -10,20 +10,17 @@ local mq = require('mq')
 local ImGui = require('ImGui')
 local LoadTheme = require('lib.theme_loader')
 local Icon = require('mq.ICONS')
-local rIcon -- resize icon variable holder
-local lIcon -- lock icon variable holder
 
 -- Variables
 local script = 'MyPet' -- Change this to the name of your script
 local meName = mq.TLO.Me.Name() or 'none'-- Character Name
 local themeName = 'Default'
-local gIcon = Icon.MD_SETTINGS -- Gear Icon for Settings
 local themeID = 1
 local theme, defaults, settings, btnInfo = {}, {}, {}, {}
 local RUNNING = true
 local showMainGUI, showConfigGUI = true, false
 local scale = 1
-local aSize, locked, hasThemeZ = false, false, false
+local locked, hasThemeZ = false, false
 local petHP, petTarg, petDist, petBuffs, petName, petTargHP, petLvl, petBuffCount = 0, nil, 0, {}, 'No Pet', 0, -1, 0
 local lastCheck = 0
 local btnKeys = { "Attack", "Back", "Taunt", "Follow", "Guard", "Focus", "Sit", "Hold", "Stop", "Bye", "Regroup", "Report", "Swarm", "Kill" }
@@ -31,10 +28,8 @@ btnInfo = { attack = false, back = false, taunt = false, follow = false, guard =
 -- GUI Settings
 local winFlags = bit32.bor(ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.NoFocusOnAppearing)
 local animSpell = mq.FindTextureAnimation('A_SpellIcons')
-local animItem = mq.FindTextureAnimation('A_DragItem')
 local iconSize = 20
 local autoHide = false
-local checkStates = false
 local showTitleBar = true
 
 -- File Paths
@@ -154,7 +149,6 @@ local function loadSettings()
 		end
 	end
 
-
 	for k, v in pairs(defaults) do
 		if settings[script][k] == nil then
 			settings[script][k] = v
@@ -183,7 +177,6 @@ local function loadSettings()
 	-- Set the settings to the variables
 	showTitleBar = settings[script].ShowTitlebar
 	autoHide = settings[script].AutoHide
-	aSize = settings[script].AutoSize
 	locked = settings[script].locked
 	scale = settings[script].Scale
 	themeName = settings[script].LoadTheme
@@ -289,7 +282,6 @@ local function Draw_GUI()
 					local lockLabel = locked and 'Unlock' or 'Lock'
 					if ImGui.MenuItem(lockLabel.."##MyPet") then
 						locked = not locked
-	
 						settings[script].locked = locked
 						mq.pickle(configFile, settings)
 					end
@@ -349,7 +341,6 @@ local function Draw_GUI()
 									mq.cmdf('/multiline ; /tar id %s; /face; /if (${Cursor.ID}) /click left target',mq.TLO.Me.Pet.ID())
 								end
 							end
-		
 						end
 						local conCol = mq.TLO.Pet.Target.ConColor() or 'WHITE'
 						if conCol == nil then conCol = 'WHITE' end
@@ -367,7 +358,6 @@ local function Draw_GUI()
 							ImGui.Dummy(20, 15)
 						end
 						ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, 2, 2)
-
 						-- Buttons Section
 						local btnCount = 0
 						for i = 1, #btnKeys do
@@ -396,9 +386,7 @@ local function Draw_GUI()
 								end
 							end
 						end
-						
 						ImGui.PopStyleVar()
-
 						ImGui.TableNextColumn()
 
 						local maxPerRow = math.floor((ImGui.GetColumnWidth() / iconSize) - 1)
@@ -444,117 +432,98 @@ local function Draw_GUI()
 	end
 
 	if showConfigGUI then
-			local winName = string.format('%s Config##Config_%s',script, meName)
-			local ColCntConf, StyCntConf = LoadTheme.StartTheme(theme.Theme[themeID])
-			local openConfig, showConfig = ImGui.Begin(winName,true,bit32.bor(ImGuiWindowFlags.NoCollapse, ImGuiWindowFlags.AlwaysAutoResize))
-			if not openConfig then
-				showConfigGUI = false
-			end
-			if showConfig then
-
-				-- Configure ThemeZ --
-				ImGui.SeparatorText("Theme##"..script)
-				if ImGui.CollapsingHeader("Theme##"..script) then
-
-					ImGui.Text("Cur Theme: %s", themeName)
-
-					-- Combo Box Load Theme
-					if ImGui.BeginCombo("Load Theme##"..script, themeName) then
-						for k, data in pairs(theme.Theme) do
-							local isSelected = data.Name == themeName
-							if ImGui.Selectable(data.Name, isSelected) then
-								theme.LoadTheme = data.Name
-								themeID = k
-								themeName = theme.LoadTheme
-							end
+		local winName = string.format('%s Config##Config_%s',script, meName)
+		local ColCntConf, StyCntConf = LoadTheme.StartTheme(theme.Theme[themeID])
+		local openConfig, showConfig = ImGui.Begin(winName,true,bit32.bor(ImGuiWindowFlags.NoCollapse, ImGuiWindowFlags.AlwaysAutoResize))
+		if not openConfig then
+			showConfigGUI = false
+		end
+		if showConfig then
+			-- Configure ThemeZ --
+			ImGui.SeparatorText("Theme##"..script)
+			if ImGui.CollapsingHeader("Theme##"..script) then
+				ImGui.Text("Cur Theme: %s", themeName)
+				-- Combo Box Load Theme
+				if ImGui.BeginCombo("Load Theme##"..script, themeName) then
+					for k, data in pairs(theme.Theme) do
+						local isSelected = data.Name == themeName
+						if ImGui.Selectable(data.Name, isSelected) then
+							theme.LoadTheme = data.Name
+							themeID = k
+							themeName = theme.LoadTheme
 						end
-						ImGui.EndCombo()
 					end
-
-					-- Configure Scale --
-					scale = ImGui.SliderFloat("Scale##"..script, scale, 0.5, 2)
-					if scale ~= settings[script].Scale then
-						if scale < 0.5 then scale = 0.5 end
-						if scale > 2 then scale = 2 end
-					end
-
-					-- Edit ThemeZ Button if ThemeZ lua exists.
-					if hasThemeZ then
-						if ImGui.Button('Edit ThemeZ') then
-							mq.cmd("/lua run themez")
-						end
-						ImGui.SameLine()
-					end
-
-					-- Reload Theme File incase of changes --
-					if ImGui.Button('Reload Theme File') then
-						loadTheme()
-					end
+					ImGui.EndCombo()
 				end
 
-				if ImGui.CollapsingHeader('ConColors##ConColors') then
-					ImGui.SeparatorText("Con Colors")
-
-					if ImGui.BeginTable('##PConCol', 2) then
-						ImGui.TableNextColumn()
-						settings[script].ConColors.RED = ImGui.ColorEdit4("RED##ConColors", settings[script].ConColors.RED, ImGuiColorEditFlags.NoInputs)
-						ImGui.TableNextColumn()
-						settings[script].ConColors.YELLOW = ImGui.ColorEdit4("YELLOW##ConColors", settings[script].ConColors.YELLOW, ImGuiColorEditFlags.NoInputs)
-						ImGui.TableNextColumn()
-						settings[script].ConColors.WHITE = ImGui.ColorEdit4("WHITE##ConColors", settings[script].ConColors.WHITE, ImGuiColorEditFlags.NoInputs)
-						ImGui.TableNextColumn()
-						settings[script].ConColors.BLUE = ImGui.ColorEdit4("BLUE##ConColors", settings[script].ConColors.BLUE, ImGuiColorEditFlags.NoInputs)
-						ImGui.TableNextColumn()
-						settings[script].ConColors['LIGHT BLUE'] = ImGui.ColorEdit4("LIGHT BLUE##ConColors", settings[script].ConColors['LIGHT BLUE'], ImGuiColorEditFlags.NoInputs)
-						ImGui.TableNextColumn()
-						settings[script].ConColors.GREEN = ImGui.ColorEdit4("GREEN##ConColors", settings[script].ConColors.GREEN, ImGuiColorEditFlags.NoInputs)
-						ImGui.TableNextColumn()
-						settings[script].ConColors.GREY = ImGui.ColorEdit4("GREY##ConColors", settings[script].ConColors.GREY, ImGuiColorEditFlags.NoInputs)
-						ImGui.EndTable()
-					end
-
+				-- Configure Scale --
+				scale = ImGui.SliderFloat("Scale##"..script, scale, 0.5, 2)
+				if scale ~= settings[script].Scale then
+					if scale < 0.5 then scale = 0.5 end
+					if scale > 2 then scale = 2 end
 				end
-				-- Configure Toggles for Button Display --
-				
-				iconSize = ImGui.InputInt("Icon Size##"..script, iconSize, 1, 5)
-				autoHide = ImGui.Checkbox("Auto Hide##"..script, autoHide)
-				ImGui.SameLine()
-				locked = ImGui.Checkbox("Lock Window##"..script, locked)
-				ImGui.SameLine()
-				showTitleBar = ImGui.Checkbox("Show Title Bar##"..script, showTitleBar)
-				
-				ImGui.SeparatorText("Buttons##"..script)
-				if ImGui.CollapsingHeader('Buttons##PetConfigButtons') then
-					ImGui.Text("Buttons to Display")
+
+				-- Edit ThemeZ Button if ThemeZ lua exists.
+				if hasThemeZ then
+					if ImGui.Button('Edit ThemeZ') then
+						mq.cmd("/lua run themez")
+					end
 					ImGui.SameLine()
-					ImGui.SetNextItemWidth(100)
-					settings[script].ButtonsRow = ImGui.InputInt("Buttons Per Row##"..script, settings[script].ButtonsRow, 1, 5)
 				end
-				-- Save & Close Button --
-				if ImGui.Button("Save & Close") then
-					settings[script].ShowTitlebar = showTitleBar
-					settings[script].locked = locked
-					settings[script].Scale = scale
-					settings[script].IconSize = iconSize
-					settings[script].LoadTheme = themeName
-					settings[script].AutoHide = autoHide
-					mq.pickle(configFile, settings)
-					showConfigGUI = false
+
+				-- Reload Theme File incase of changes --
+				if ImGui.Button('Reload Theme File') then
+					loadTheme()
 				end
-				ImGui.Separator()
-				if ImGui.BeginTable("ButtonToggles##Toggles", 3, ImGuiTableFlags.ScrollY, ImVec2(-1,200)) then
+			end
+
+			if ImGui.CollapsingHeader('ConColors##ConColors') then
+				ImGui.SeparatorText("Con Colors")
+				if ImGui.BeginTable('##PConCol', 2) then
+					ImGui.TableNextColumn()
+					settings[script].ConColors.RED = ImGui.ColorEdit4("RED##ConColors", settings[script].ConColors.RED, ImGuiColorEditFlags.NoInputs)
+					ImGui.TableNextColumn()
+					settings[script].ConColors.YELLOW = ImGui.ColorEdit4("YELLOW##ConColors", settings[script].ConColors.YELLOW, ImGuiColorEditFlags.NoInputs)
+					ImGui.TableNextColumn()
+					settings[script].ConColors.WHITE = ImGui.ColorEdit4("WHITE##ConColors", settings[script].ConColors.WHITE, ImGuiColorEditFlags.NoInputs)
+					ImGui.TableNextColumn()
+					settings[script].ConColors.BLUE = ImGui.ColorEdit4("BLUE##ConColors", settings[script].ConColors.BLUE, ImGuiColorEditFlags.NoInputs)
+					ImGui.TableNextColumn()
+					settings[script].ConColors['LIGHT BLUE'] = ImGui.ColorEdit4("LIGHT BLUE##ConColors", settings[script].ConColors['LIGHT BLUE'], ImGuiColorEditFlags.NoInputs)
+					ImGui.TableNextColumn()
+					settings[script].ConColors.GREEN = ImGui.ColorEdit4("GREEN##ConColors", settings[script].ConColors.GREEN, ImGuiColorEditFlags.NoInputs)
+					ImGui.TableNextColumn()
+					settings[script].ConColors.GREY = ImGui.ColorEdit4("GREY##ConColors", settings[script].ConColors.GREY, ImGuiColorEditFlags.NoInputs)
+					ImGui.EndTable()
+				end
+			end
+			-- Configure Toggles for Button Display --
+			iconSize = ImGui.InputInt("Icon Size##"..script, iconSize, 1, 5)
+			autoHide = ImGui.Checkbox("Auto Hide##"..script, autoHide)
+			ImGui.SameLine()
+			locked = ImGui.Checkbox("Lock Window##"..script, locked)
+			ImGui.SameLine()
+			showTitleBar = ImGui.Checkbox("Show Title Bar##"..script, showTitleBar)
+
+			ImGui.SeparatorText("Buttons##"..script)
+			if ImGui.CollapsingHeader('Buttons##PetConfigButtons') then
+				ImGui.SetNextItemWidth(100)
+				settings[script].ButtonsRow = ImGui.InputInt("Buttons Per Row##"..script, settings[script].ButtonsRow, 1, 5)
+
+				ImGui.SeparatorText("Buttons to Display")
+				if ImGui.BeginTable("ButtonToggles##Toggles", 3, ImGuiTableFlags.ScrollY, ImVec2(-1,100)) then
 					ImGui.TableSetupColumn("Col1", ImGuiTableColumnFlags.None, -1)
 					ImGui.TableSetupColumn("Col2", ImGuiTableColumnFlags.None, -1)
 					ImGui.TableSetupColumn("Col3", ImGuiTableColumnFlags.None, -1)
 					ImGui.TableNextRow()
 					ImGui.TableNextColumn()
-				
+
 					local atkToggle = settings[script].Buttons.Attack.show and Icon.FA_TOGGLE_ON or Icon.FA_TOGGLE_OFF
 					ImGui.Text("%s Attack", atkToggle)
 					if ImGui.IsItemClicked(0) then
 						settings[script].Buttons.Attack.show = not settings[script].Buttons.Attack.show
 					end
-					
+
 					ImGui.TableNextColumn()
 
 					local tauntToggle = settings[script].Buttons.Taunt.show and Icon.FA_TOGGLE_ON or Icon.FA_TOGGLE_OFF
@@ -579,7 +548,7 @@ local function Draw_GUI()
 					if ImGui.IsItemClicked(0) then
 						settings[script].Buttons.Follow.show = not settings[script].Buttons.Follow.show
 					end
-					
+
 					ImGui.TableNextColumn()
 
 					local guardToggle = settings[script].Buttons.Guard.show and Icon.FA_TOGGLE_ON or Icon.FA_TOGGLE_OFF
@@ -587,9 +556,9 @@ local function Draw_GUI()
 					if ImGui.IsItemClicked(0) then
 						settings[script].Buttons.Guard.show = not settings[script].Buttons.Guard.show
 					end
-					
+
 					ImGui.TableNextColumn()
-					
+
 					local sitToggle = settings[script].Buttons.Sit.show and Icon.FA_TOGGLE_ON or Icon.FA_TOGGLE_OFF
 					ImGui.Text("%s Sit", sitToggle)
 					if ImGui.IsItemClicked(0) then
@@ -664,16 +633,22 @@ local function Draw_GUI()
 					end
 					ImGui.EndTable()
 				end
-				
-				-- Configure Toggles for AutoSize and Lock --
-				LoadTheme.EndTheme(ColCntConf, StyCntConf)
-				ImGui.End()
-			else
-				LoadTheme.EndTheme(ColCntConf, StyCntConf)
-				ImGui.End()
 			end
+			-- Save & Close Button --
+			if ImGui.Button("Save & Close") then
+				settings[script].ShowTitlebar = showTitleBar
+				settings[script].locked = locked
+				settings[script].Scale = scale
+				settings[script].IconSize = iconSize
+				settings[script].LoadTheme = themeName
+				settings[script].AutoHide = autoHide
+				mq.pickle(configFile, settings)
+				showConfigGUI = false
+			end
+		end
+		LoadTheme.EndTheme(ColCntConf, StyCntConf)
+		ImGui.End()
 	end
-
 end
 
 local function Init()
